@@ -57,9 +57,9 @@ public class CameraAppActivity extends Activity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_camera_app, container, false);
+            ViewGroup rootView = (ViewGroup) inflater.inflate(R.layout.fragment_camera_app, container, false);
+            rootView.addView(new CameraView(rootView.getContext()));
             return rootView;
         }
     }
-
 }
