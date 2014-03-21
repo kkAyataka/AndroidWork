@@ -6,7 +6,11 @@ import java.util.Iterator;
 import android.app.Activity;
 import android.app.ActionBar;
 import android.app.Fragment;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
@@ -67,6 +71,16 @@ public class UsbHostAppActivity extends Activity {
         }
 
         @Override
+        public void onCreate(Bundle savedInstanceState) {
+        	super.onCreate(savedInstanceState);
+        	
+        	mUsbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        	mPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(ACTION_USB_PERMISSION), 0);
+        	IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        	getActivity().registerReceiver(mUsbReceiver, filter);
+        }
+        
+        @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                 Bundle savedInstanceState) {
             View rootView = inflater.inflate(R.layout.fragment_usb_host_app, container, false);
@@ -101,13 +115,35 @@ public class UsbHostAppActivity extends Activity {
         	list.setAdapter(listAdp);
         }
         
-        private OnItemClickListener onItemClickListenr = new OnItemClickListener() {
+        private final OnItemClickListener onItemClickListenr = new OnItemClickListener() {
 
 			@Override
 			public void onItemClick(AdapterView<?> parent, View view,
 					int position, long id) {
 				UsbListData item = (UsbListData) parent.getAdapter().getItem(position);
 				
+				mUsbManager.requestPermission(item.device, mPermissionIntent);
+			}
+        };
+        
+        private static final String ACTION_USB_PERMISSION = "com.example.USB_PERMISSION";
+        private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
+        	
+			@Override
+			public void onReceive(Context context, Intent intent) {
+				String action = intent.getAction();
+				if (action == ACTION_USB_PERMISSION) {
+					UsbDevice device = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+					
+					if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+						if (device != null) {
+							Log.i("UsbHostApp", "permitted " + device);
+						}
+					}
+					else {
+						Log.d("UsbHostApp", "permission denied for device " + device);
+					}
+				}
 			}
         };
         
@@ -125,5 +161,8 @@ public class UsbHostAppActivity extends Activity {
         		return label;
         	}
         };
+        
+        private UsbManager mUsbManager;
+        private PendingIntent mPermissionIntent;
     }
 }
