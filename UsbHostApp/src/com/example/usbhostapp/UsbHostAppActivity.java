@@ -140,7 +140,7 @@ public class UsbHostAppActivity extends Activity {
 						if (device != null) {
 							Log.i("UsbHostApp", "permitted " + device);
 							
-							UsbDeviceFragment fragment = new UsbDeviceFragment();
+							UsbInterfaceFragment fragment = new UsbInterfaceFragment();
 							Bundle args = new Bundle();
 							args.putParcelable("com.example.USB_DEVICE", device);
 							fragment.setArguments(args);
