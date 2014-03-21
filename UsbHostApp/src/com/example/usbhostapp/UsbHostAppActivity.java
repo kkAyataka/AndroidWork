@@ -6,6 +6,7 @@ import java.util.Iterator;
 import android.app.Activity;
 import android.app.ActionBar;
 import android.app.Fragment;
+import android.app.FragmentTransaction;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -138,6 +139,16 @@ public class UsbHostAppActivity extends Activity {
 					if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
 						if (device != null) {
 							Log.i("UsbHostApp", "permitted " + device);
+							
+							UsbDeviceFragment fragment = new UsbDeviceFragment();
+							Bundle args = new Bundle();
+							args.putParcelable("com.example.USB_DEVICE", device);
+							fragment.setArguments(args);
+							
+							FragmentTransaction transaction = getFragmentManager().beginTransaction();
+							transaction.replace(R.id.container, fragment);
+							transaction.addToBackStack(null);
+							transaction.commit();
 						}
 					}
 					else {
