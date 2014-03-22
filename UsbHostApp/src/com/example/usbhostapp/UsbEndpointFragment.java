@@ -1,6 +1,7 @@
 package com.example.usbhostapp;
 
 import android.app.Fragment;
+import android.app.FragmentTransaction;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbEndpoint;
@@ -10,9 +11,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.AdapterView.OnItemClickListener;
 
 public class UsbEndpointFragment extends Fragment {
 	@Override
@@ -57,9 +58,15 @@ public class UsbEndpointFragment extends Fragment {
 			SimpleListData<Bundle> item = (SimpleListData<Bundle>) parent.getAdapter().getItem(position);
 		
 			if (item != null) {
+				UsbDeviceConnectionFragment fragment = new UsbDeviceConnectionFragment();
+				fragment.setArguments(item.value);
 				
+				FragmentTransaction transaction = getFragmentManager().beginTransaction();
+				transaction.replace(R.id.container, fragment);
+				transaction.addToBackStack(null);
+				transaction.commit();
 			}
-			}
+		}
 	};
 	
 	private String getTypeStr(int type) {
