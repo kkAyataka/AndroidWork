@@ -1,5 +1,6 @@
 package com.example.usbhostapp;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -19,6 +20,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.example.usbhostapp.usb.GlobalItem;
+import com.example.usbhostapp.usb.LocalItem;
+import com.example.usbhostapp.usb.Usage;
 import com.example.usbhostapp.usb.UsbDescriptor;
 
 public class UsbDeviceConnectionFragment extends Fragment {
@@ -46,7 +50,7 @@ public class UsbDeviceConnectionFragment extends Fragment {
 		
 		boolean res = mConnection.claimInterface(mInterface, true);
 		
-		byte[] rawReportDescriptor = new byte[148];
+		byte[] rawReportDescriptor = new byte[1611];
 		int read = mConnection.controlTransfer(0x81, 0x06, 0x2200, 0, rawReportDescriptor, rawReportDescriptor.length, 3000);
 		
 		TextView view = (TextView) getView().findViewById(R.id.textView);
@@ -56,9 +60,113 @@ public class UsbDeviceConnectionFragment extends Fragment {
 				//desc.deviceDescriptor.productId + " "
 				);
 		
-		ByteBuffer b = ByteBuffer.wrap(rawReportDescriptor);
+		try {
+			ByteBuffer b = ByteBuffer.wrap(rawReportDescriptor);
+			b.order(ByteOrder.LITTLE_ENDIAN);
+			
+			GlobalItem globalItem = new GlobalItem();
+			LocalItem localItem = new LocalItem();
+			while (b.hasRemaining()) {
+				byte prefix = b.get();
+				int size = 0;
+				int type = 0;
+				int tag = 0;
+				
+				if (prefix != 0xFE) {
+					// short item
+					size = ((prefix & 0x03) == 0x03) ? 4 : prefix & 0x03;
+					type = (prefix >> 2) & 0x03;
+					tag = (prefix >> 4) & 0x0F;
+				}
+				else {
+					// long item
+					size = b.get() & 0xFF;
+					type = 0x3;
+					tag = b.get() & 0xFF;
+				}
+				
+				byte[] data = new byte[size];
+				b.get(data);
+					
+				switch (type) {
+				case 0: // main
+					String format = "UPage:%04X, UID:%02X";
+					switch (tag) {
+					case 0x8: // Input
+						Log.i("ReportDesc", String.format("Input   " + format, globalItem.usagePage, localItem.usage));
+						break;
+					case 0x9: // Output
+						Log.i("ReportDesc", String.format("Output  " + format, globalItem.usagePage, localItem.usage));
+						break;
+					case 0xB: // Feature
+						Usage usage = new Usage();
+						usage.usagePage = globalItem.usagePage;
+						usage.usageId = localItem.usage;
+						usage.usageMin = localItem.usageMin;
+						usage.usageMax = localItem.usageMax;
+						usage.repotId = globalItem.reportId;
+						usage.repotCount = globalItem.reportCount;
+						usage.repotSize = globalItem.reportSize;
+						Log.i("ReportDesc", String.format("Feature " + format, globalItem.usagePage, localItem.usage));
+						break;
+					case 0xA: // Collection
+						Log.i("ReportDesc", String.format("Collection " + getInt(data, size)));
+						break;
+					case 0xC: // End Collection
+						Log.i("ReportDesc", String.format("End Collection " + getInt(data, size)));
+						break;
+					}
+					
+					localItem = new LocalItem();
+					break;
+				case 1: // Global
+					if (tag == 0x0) globalItem.usagePage = getInt(data, size);
+					if (tag == 0x1) globalItem.logicalMin = getInt(data, size);
+					if (tag == 0x2) globalItem.logicalMax = getInt(data, size);
+					if (tag == 0x3) globalItem.physicalMin = getInt(data, size);
+					if (tag == 0x4) globalItem.physicalMax = getInt(data, size);
+					if (tag == 0x5) globalItem.unitExponent = getInt(data, size);
+					if (tag == 0x6) globalItem.unit = getInt(data, size);
+					if (tag == 0x7) globalItem.reportSize = getInt(data, size);
+					if (tag == 0x8) globalItem.reportId = getInt(data, size);
+					if (tag == 0x9) globalItem.reportCount = getInt(data, size);
+					if (tag == 0xA) globalItem.push = getInt(data, size);
+					if (tag == 0xB) globalItem.pop = getInt(data, size);
+					break;
+				case 2: // local
+					if (tag == 0x0) localItem.usage = getInt(data, size);
+					if (tag == 0x1) localItem.usageMin = getInt(data, size);
+					if (tag == 0x2) localItem.usageMax = getInt(data, size);
+					if (tag == 0x3) localItem.designatorIndex = getInt(data, size);
+					if (tag == 0x4) localItem.designatorMin = getInt(data, size);
+					if (tag == 0x5) localItem.designatorMax = getInt(data, size);
+					if (tag == 0x7) localItem.stringIndex = getInt(data, size);
+					if (tag == 0x8) localItem.stringMin = getInt(data, size);
+					if (tag == 0x9) localItem.stringMax = getInt(data, size);
+					if (tag == 0xA) localItem.delimiter = getInt(data, size);
+					break;
+				default:
+					Log.e("ReportDesc", "Unknown type");
+					break;
+				}
+				
+				String str = String.format("p:%02X s:%d ty:%d t:%02X", prefix, size, type, tag);
+				//Log.i("ReportDesc", str);
+			}
+		}
+		catch (BufferUnderflowException e) {
+			Log.e("ReportDesc", e.toString());
+		}
+	}
+	
+	public int getInt(byte[] data, int size) {
+		ByteBuffer b = ByteBuffer.wrap(data);
 		b.order(ByteOrder.LITTLE_ENDIAN);
+		if (size == 1) return b.get() & 0xFF;
+		if (size == 2) return b.getShort() & 0xFFFF;
+		if (size == 4) return b.getInt();
 		
+		return 0;
 	}
 	
 	@Override
