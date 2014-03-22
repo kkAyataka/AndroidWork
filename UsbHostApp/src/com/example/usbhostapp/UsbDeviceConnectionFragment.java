@@ -18,7 +18,12 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.usbhostapp.usb.GlobalItem;
 import com.example.usbhostapp.usb.LocalItem;
@@ -30,6 +35,8 @@ public class UsbDeviceConnectionFragment extends Fragment {
 	public View onCreateView(LayoutInflater inflater, ViewGroup container,
 			Bundle savedInstanceState) {
 		View rootView = inflater.inflate(R.layout.fragment_usb_device_connection, container, false);
+		ListView listView = (ListView) rootView.findViewById(R.id.usageListView);
+		listView.setOnItemClickListener(onItemClickListener);
 		return rootView;
 	}
 	
@@ -53,13 +60,7 @@ public class UsbDeviceConnectionFragment extends Fragment {
 		byte[] rawReportDescriptor = new byte[1611];
 		int read = mConnection.controlTransfer(0x81, 0x06, 0x2200, 0, rawReportDescriptor, rawReportDescriptor.length, 3000);
 		
-		TextView view = (TextView) getView().findViewById(R.id.textView);
-		view.setText(
-				mConnection.toString() + " " +
-				", " + read
-				//desc.deviceDescriptor.productId + " "
-				);
-		
+		ArrayAdapter<Usage> adp = new ArrayAdapter<Usage>(getActivity(), android.R.layout.simple_list_item_1);
 		try {
 			ByteBuffer b = ByteBuffer.wrap(rawReportDescriptor);
 			b.order(ByteOrder.LITTLE_ENDIAN);
@@ -104,9 +105,10 @@ public class UsbDeviceConnectionFragment extends Fragment {
 						usage.usageId = localItem.usage;
 						usage.usageMin = localItem.usageMin;
 						usage.usageMax = localItem.usageMax;
-						usage.repotId = globalItem.reportId;
-						usage.repotCount = globalItem.reportCount;
-						usage.repotSize = globalItem.reportSize;
+						usage.reportId = globalItem.reportId;
+						usage.reportCount = globalItem.reportCount;
+						usage.reportSize = globalItem.reportSize;
+						adp.add(usage);
 						Log.i("ReportDesc", String.format("Feature " + format, globalItem.usagePage, localItem.usage));
 						break;
 					case 0xA: // Collection
@@ -149,15 +151,45 @@ public class UsbDeviceConnectionFragment extends Fragment {
 					Log.e("ReportDesc", "Unknown type");
 					break;
 				}
-				
-				String str = String.format("p:%02X s:%d ty:%d t:%02X", prefix, size, type, tag);
-				//Log.i("ReportDesc", str);
 			}
 		}
 		catch (BufferUnderflowException e) {
 			Log.e("ReportDesc", e.toString());
 		}
+		
+		ListView listView = (ListView) getView().findViewById(R.id.usageListView);
+		listView.setAdapter(adp);
 	}
+	
+	private OnItemClickListener onItemClickListener = new OnItemClickListener() {
+
+		@Override
+		public void onItemClick(AdapterView<?> parent, View view, int position,
+				long id) {
+			Usage usage = (Usage) parent.getAdapter().getItem(position);
+			
+			if (usage != null) {
+				byte[] buf = new byte[usage.reportCount * usage.reportSize / 8];
+				// Get Report, Feature
+				mConnection.controlTransfer(
+						0xA1,
+						0x01,
+						0x0300 | usage.reportId,
+						0,
+						buf,
+						buf.length,
+						3000);
+				ByteBuffer b = ByteBuffer.wrap(buf);
+				//b.order(ByteOrder.LITTLE_ENDIAN);
+				String text = "";
+				for (int i = 0; i < buf.length; ++i) {
+					text += Integer.toHexString(buf[i] & 0xFF);
+					text += " ";
+				}
+				Toast.makeText(getActivity(), text, Toast.LENGTH_LONG).show();
+			}
+		}
+	};
 	
 	public int getInt(byte[] data, int size) {
 		ByteBuffer b = ByteBuffer.wrap(data);
