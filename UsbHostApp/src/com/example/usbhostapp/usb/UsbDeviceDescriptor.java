@@ -1,23 +1,31 @@
 package com.example.usbhostapp.usb;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+import android.util.Log;
 
 public class UsbDeviceDescriptor extends UsbDescriptorBase {
-	public UsbDeviceDescriptor(ByteBuffer rawDescriptor) {
-		super(rawDescriptor);
+	public UsbDeviceDescriptor(byte length, byte type, byte[] payload) {
+		super(length, type);
 		
-		this.bcdUsb = rawDescriptor.get();
-		this.deviceClass = rawDescriptor.get();
-		this.deviceSubClass= rawDescriptor.get();
-		this.deviceProtocol = rawDescriptor.get();
-		this.maxPacketSize = rawDescriptor.get();
-		this.vendorId = rawDescriptor.getShort();
-		this.productId = rawDescriptor.getShort();
-		this.bcdDevice = rawDescriptor.getShort();
-		this.manufacturer = rawDescriptor.get();
-		this.product = rawDescriptor.get();
-		this.serialNumber = rawDescriptor.get();
-		this.numConfigurations = rawDescriptor.get();
+		ByteBuffer b = ByteBuffer.wrap(payload);
+		b.order(ByteOrder.LITTLE_ENDIAN);
+		
+		this.bcdUsb = b.getShort();
+		this.deviceClass = b.get();
+		this.deviceSubClass= b.get();
+		this.deviceProtocol = b.get();
+		this.maxPacketSize = b.get();
+		this.vendorId = b.getShort();
+		this.productId = b.getShort();
+		this.bcdDevice = b.getShort();
+		this.manufacturer = b.get();
+		this.product = b.get();
+		this.serialNumber = b.get();
+		this.numConfigurations = b.get();
+		
+		Log.i("Descriptor", "MaxPacketSize: " + maxPacketSize + " " + Math.pow(2, maxPacketSize));
 	}
 	
 	public short bcdUsb;
